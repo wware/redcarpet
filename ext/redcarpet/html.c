@@ -606,6 +606,14 @@ rndr_footnote_ref(struct buf *ob, unsigned int num, void *opaque)
 	return 1;
 }
 
+static int
+rndr_rdfa_span(struct buf *ob, unsigned int num, void *opaque)
+{
+	/* TODO */
+	bufprintf(ob, "<sup id=\"fnref%d\"><a href=\"#fn%d\" rel=\"footnote\">%d</a></sup>", num, num, num);
+	return 1;
+}
+
 static void
 toc_header(struct buf *ob, const struct buf *text, int level, char *anchor, void *opaque)
 {
@@ -693,6 +701,7 @@ sdhtml_toc_renderer(struct sd_callbacks *callbacks, struct html_renderopt *optio
 		rndr_strikethrough,
 		rndr_superscript,
 		rndr_footnote_ref,
+		rndr_rdfa_span,
 
 		NULL,
 		NULL,
@@ -741,6 +750,7 @@ sdhtml_renderer(struct sd_callbacks *callbacks, struct html_renderopt *options, 
 		rndr_strikethrough,
 		rndr_superscript,
 		rndr_footnote_ref,
+		rndr_rdfa_span,
 
 		NULL,
 		rndr_normal_text,
@@ -768,3 +778,9 @@ sdhtml_renderer(struct sd_callbacks *callbacks, struct html_renderopt *options, 
 	if (render_flags & HTML_SKIP_HTML || render_flags & HTML_ESCAPE)
 		callbacks->blockhtml = NULL;
 }
+
+/* Local Variables:     */
+/* mode: c              */
+/* c-basic-offset: 8    */
+/* indent-tabs-mode: t  */
+/* End:                 */

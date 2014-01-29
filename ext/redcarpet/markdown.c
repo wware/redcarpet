@@ -1342,6 +1342,87 @@ is_hrule(uint8_t *data, size_t size)
 	return n >= 3;
 }
 
+/* check if a line is an RDFa property; return its size if it is */
+static size_t
+is_rdfa(uint8_t *data, size_t size, struct buf *syntax)
+{
+	size_t i = 0, syn_len = 0;
+	uint8_t *syn_start;
+
+	while (i < size && data[i] == ' ')
+		i++;
+
+	syn_start = data + i;
+
+	/*
+	 *  The format for RDFa properties embedded in Markdown is going
+	 *  to work like this.
+	 *
+	 *  Source markdown:
+	 *	[about]: Subject
+	 *	Blah blah blah blah {%Predicate Object} blah blah blah.
+	 *	[about]: end
+	 *  should be rendered to Turtle as:
+	 *	Subject Predicate Object .
+	 *  should be rendered to HTML as something like (maybe span instead of div):
+	 *	<div about="Subject">
+	 *	Blah blah blah blah <span property="Predicate">Object</span>
+	 *	blah blah blah.
+	 *	</div>
+	 *
+	 *  Where the object should have a different appearance in the HTML,
+	 *  we provide an RDFa version of the object, and a HTML version.
+	 *
+	 *  Source markdown:
+	 *	[about]: Subject
+	 *	Blah blah blah blah {%Predicate ObjectRdfa::ObjectHtml} blah blah blah.
+	 *	[about]: end
+	 *  should be rendered to Turtle as:
+	 *	Subject Predicate ObjectRdfa .
+	 *  which should be rendered to HTML as something like
+	 *	<div about="Subject">
+	 *	Blah blah blah blah <span property="Predicate">ObjectHtml</span>
+	 *	blah blah blah.
+	 *	</div>
+	 */
+
+	if (i < size - 1 && data[i] == '{' && data[i+1] == '%') {
+		i += 2; syn_start += 2;
+
+		while (i < size && data[i] != '}' && data[i] != '\n') {
+			syn_len++; i++;
+		}
+
+		if (i == size || data[i] != '}')
+			return 0;
+
+		/* strip all whitespace at the beginning and the end
+		 * of the {} block */
+		while (syn_len > 0 && _isspace(syn_start[0])) {
+			syn_start++; syn_len--;
+		}
+
+		while (syn_len > 0 && _isspace(syn_start[syn_len - 1]))
+			syn_len--;
+
+		i++;
+	}
+
+	if (syntax) {
+		syntax->data = syn_start;
+		syntax->size = syn_len;
+	}
+
+	while (i < size && data[i] != '\n') {
+		if (!_isspace(data[i]))
+			return 0;
+
+		i++;
+	}
+
+	return i + 1;
+}
+
 /* check if a line begins with a code fence; return the
  * width of the code fence */
 static size_t
@@ -1720,6 +1801,53 @@ parse_paragraph(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t 
 	return end;
 }
 
+/* parse_rdfa • handles parsing of RDFa */
+static size_t
+parse_rdfa(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t size)
+{
+	size_t beg, end;
+	struct buf *work = 0;
+	struct buf lang = { 0, 0, 0, 0 };
+
+	/* Lots TODO here */
+
+	beg = is_rdfa(data, size, &lang);
+	if (beg == 0) return 0;
+
+	work = rndr_newbuf(rndr, BUFFER_BLOCK);
+
+	while (beg < size) {
+		size_t rdfa_end;
+		struct buf rdfa_trail = { 0, 0, 0, 0 };
+
+		rdfa_end = is_rdfa(data + beg, size - beg, &rdfa_trail);
+		if (rdfa_end != 0 && rdfa_trail.size == 0) {
+			beg += rdfa_end;
+			break;
+		}
+
+		for (end = beg + 1; end < size && data[end - 1] != '\n'; end++);
+
+		if (beg < end) {
+			/* verbatim copy to the working buffer,
+				escaping entities */
+			if (is_empty(data + beg, end - beg))
+				bufputc(work, '\n');
+			else bufput(work, data + beg, end - beg);
+		}
+		beg = end;
+	}
+
+	if (work->size && work->data[work->size - 1] != '\n')
+		bufputc(work, '\n');
+
+	if (rndr->cb.blockcode)
+		rndr->cb.blockcode(ob, work, lang.size ? &lang : NULL, rndr->opaque);
+
+	rndr_popbuf(rndr, BUFFER_BLOCK);
+	return beg;
+}
+
 /* parse_fencedcode • handles parsing of a block-level code fragment */
 static size_t
 parse_fencedcode(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t size)
@@ -1888,7 +2016,7 @@ parse_listitem(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t s
 				has_inside_empty = 1;
 
 			if (pre == orgpre) /* the following item must have */
-				break;             /* the same indentation */
+				break;		   /* the same indentation */
 
 			if (!sublist)
 				sublist = work->size;
@@ -2438,6 +2566,10 @@ parse_block(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t size
 			beg++;
 		}
 
+		else if ((rndr->ext_flags & MKDEXT_RDFA) != 0 &&
+			(i = parse_rdfa(ob, rndr, txt_data, end)) != 0)
+			beg += i;
+
 		else if ((rndr->ext_flags & MKDEXT_FENCED_CODE) != 0 &&
 			(i = parse_fencedcode(ob, rndr, txt_data, end)) != 0)
 			beg += i;
@@ -2690,7 +2822,7 @@ is_ref(const uint8_t *data, size_t beg, size_t end, size_t *last, struct link_re
 
 static void expand_tabs(struct buf *ob, const uint8_t *line, size_t size)
 {
-	size_t  i = 0, tab = 0;
+	size_t	i = 0, tab = 0;
 
 	while (i < size) {
 		size_t org = i;
@@ -2891,3 +3023,9 @@ sd_markdown_free(struct sd_markdown *md)
 
 	free(md);
 }
+
+/* Local Variables:     */
+/* mode: c              */
+/* c-basic-offset: 8    */
+/* indent-tabs-mode: t  */
+/* End:                 */

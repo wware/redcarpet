@@ -68,6 +68,9 @@ static void rb_redcarpet_md_flags(VALUE hash, unsigned int *enabled_extensions_p
 	if (rb_hash_lookup(hash, CSTR2SYM("footnotes")) == Qtrue)
 		extensions |= MKDEXT_FOOTNOTES;
 
+	if (rb_hash_lookup(hash, CSTR2SYM("rdfa")) == Qtrue)
+		extensions |= MKDEXT_RDFA;
+
 	*enabled_extensions_p = extensions;
 }
 
@@ -163,3 +166,9 @@ void Init_redcarpet()
 	Init_redcarpet_rndr();
 }
 
+
+/* Local Variables:     */
+/* mode: c              */
+/* c-basic-offset: 8    */
+/* indent-tabs-mode: t  */
+/* End:                 */

@@ -58,7 +58,8 @@ enum mkd_extensions {
 	MKDEXT_DISABLE_INDENTED_CODE = (1 << 9),
 	MKDEXT_HIGHLIGHT = (1 << 10),
 	MKDEXT_FOOTNOTES = (1 << 11),
-	MKDEXT_QUOTE = (1 << 12)
+	MKDEXT_QUOTE = (1 << 12),
+	MKDEXT_RDFA = (1 << 13)
 };
 
 /* sd_callbacks - functions for rendering parsed data */
@@ -94,6 +95,7 @@ struct sd_callbacks {
 	int (*strikethrough)(struct buf *ob, const struct buf *text, void *opaque);
 	int (*superscript)(struct buf *ob, const struct buf *text, void *opaque);
 	int (*footnote_ref)(struct buf *ob, unsigned int num, void *opaque);
+	int (*rdfa_span)(struct buf *ob, unsigned int num, void *opaque);
 
 	/* low level callbacks - NULL copies input directly into the output */
 	void (*entity)(struct buf *ob, const struct buf *entity, void *opaque);
@@ -136,3 +138,9 @@ sd_markdown_free(struct sd_markdown *md);
 #endif
 
 #endif
+
+/* Local Variables:     */
+/* mode: c              */
+/* c-basic-offset: 8    */
+/* indent-tabs-mode: t  */
+/* End:                 */

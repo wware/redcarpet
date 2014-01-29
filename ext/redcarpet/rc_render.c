@@ -237,6 +237,12 @@ rndr_footnote_ref(struct buf *ob, unsigned int num, void *opaque)
 	SPAN_CALLBACK("footnote_ref", 1, INT2FIX(num));
 }
 
+static int
+rndr_rdfa_span(struct buf *ob, unsigned int num, void *opaque)
+{
+	SPAN_CALLBACK("rdfa_span", 1, INT2FIX(num));   //correct argument???
+}
+
 /**
  * direct writes
  */
@@ -315,6 +321,7 @@ static struct sd_callbacks rb_redcarpet_callbacks = {
 	rndr_strikethrough,
 	rndr_superscript,
 	rndr_footnote_ref,
+	rndr_rdfa_span,
 
 	rndr_entity,
 	rndr_normal_text,
@@ -353,6 +360,7 @@ static const char *rb_redcarpet_method_names[] = {
 	"strikethrough",
 	"superscript",
 	"footnote_ref",
+	"rdfa_span",
 
 	"entity",
 	"normal_text",
@@ -527,3 +535,9 @@ void Init_redcarpet_rndr()
 	rb_mSmartyPants = rb_define_module_under(rb_mRender, "SmartyPants");
 	rb_define_method(rb_mSmartyPants, "postprocess", rb_redcarpet_smartypants_render, 1);
 }
+
+/* Local Variables:     */
+/* mode: c              */
+/* c-basic-offset: 8    */
+/* indent-tabs-mode: t  */
+/* End:                 */
